@@ -1,6 +1,6 @@
 ---
 description: Scan project to auto-generate .worktree.json for worktree port management
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Worktree Setup
