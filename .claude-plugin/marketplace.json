@@ -9,7 +9,10 @@
     {
       "name": "vandra-dev",
       "description": "Opinionated development workflow plugin with worktree management, port isolation, issue tracking, and PR workflows",
-      "source": "./"
+      "source": {
+        "source": "github",
+        "repo": "elijahmurray/vandra-dev"
+      }
     }
   ]
 }
