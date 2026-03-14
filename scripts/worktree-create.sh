@@ -517,59 +517,38 @@ echo -e "${RED}|${RESET}"
 fi
 echo -e "${RED}+------------------------------------------------------------------------------+${RESET}"
 echo ""
-echo -e "${BOLD}${WHITE}Copy: ${CYAN}cd ${RELATIVE_PATH}${RESET}"
+# Build the one-liner for the new tab
+LAUNCH_CMD="cd ${WORKTREE_PATH} && claude"
+
+# Copy to clipboard
+echo -n "$LAUNCH_CMD" | pbcopy 2>/dev/null
+
+echo -e "${BOLD}${WHITE}Copied to clipboard — paste in new tab:${RESET}"
+echo -e "${CYAN}  ${LAUNCH_CMD}${RESET}"
 echo ""
 
-# Attempt Warp Terminal automation if available
+# Open a new tab automatically
 if [ "$TERM_PROGRAM" = "WarpTerminal" ]; then
-    echo -e "${CYAN}Attempting to open new Warp tab...${RESET}"
+    # Warp: open new tab via URL scheme, user pastes the command
+    open "warp://action/new_tab" 2>/dev/null
+    echo -e "${GREEN}New Warp tab opened — just paste (Cmd+V) and hit Enter${RESET}"
 
-    TAB_CREATED=false
-
-    if command -v warp-cli >/dev/null 2>&1; then
-        if warp-cli open "$WORKTREE_PATH" --new-tab --title "$TAB_TITLE" >/dev/null 2>&1; then
-            TAB_CREATED=true
-            echo -e "${GREEN}New Warp tab opened: ${TAB_TITLE}${RESET}"
-        fi
-    fi
-
-    if [ "$TAB_CREATED" = false ]; then
-        if osascript -e "tell application \"Warp\"" \
-                     -e "tell current window" \
-                     -e "set newTab to create tab" \
-                     -e "tell newTab" \
-                     -e "set current directory to \"$WORKTREE_PATH\"" \
-                     -e "set title to \"$TAB_TITLE\"" \
-                     -e "end tell" \
-                     -e "end tell" \
-                     -e "end tell" >/dev/null 2>&1; then
-            TAB_CREATED=true
-            echo -e "${GREEN}New Warp tab opened: ${TAB_TITLE}${RESET}"
-        fi
-    fi
-
-    if [ "$TAB_CREATED" = false ]; then
-        if osascript -e "tell application \"Warp\" to tell front window to set newTab to create tab" >/dev/null 2>&1; then
-            echo -e "${YELLOW}New Warp tab created (cd manually)${RESET}"
-            TAB_CREATED=true
-        fi
-    fi
-
-    if [ "$TAB_CREATED" = true ]; then
-        echo -e "${WHITE}Switch to new tab and start: ${CYAN}claude code${RESET}"
-    fi
 elif [ "$TERM_PROGRAM" = "iTerm.app" ]; then
-    # iTerm2: try to open new tab with title
+    # iTerm2: open new tab and run the command directly
     osascript -e "
         tell application \"iTerm2\"
             tell current window
                 create tab with default profile
                 tell current session of current tab
-                    write text \"cd $WORKTREE_PATH && printf '\\\\033]0;${TAB_TITLE}\\\\007'\"
+                    write text \"${LAUNCH_CMD} && printf '\\\\033]0;${TAB_TITLE}\\\\007'\"
                 end tell
             end tell
         end tell
-    " >/dev/null 2>&1 && echo -e "${GREEN}New iTerm2 tab opened: ${TAB_TITLE}${RESET}" || true
+    " >/dev/null 2>&1 && echo -e "${GREEN}New iTerm2 tab opened and running${RESET}" || true
+
+else
+    # Other terminals: just show the command
+    echo -e "${YELLOW}Open a new tab and paste the command above${RESET}"
 fi
 
 # Send desktop notification
