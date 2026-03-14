@@ -71,18 +71,13 @@ fi
 echo "Copying environment configuration files..."
 
 # Find and copy all .env* files from the project root, maintaining directory structure
+# Note: We copy real .env files (not .env.example) from the main worktree, which has
+# actual credentials/config. The git checkout may have placeholder .env.example files
+# but we always want the real values from the main worktree.
 echo "Discovering environment files..."
 env_files_found=0
 
-find "$PROJECT_ROOT" -type f \( -name ".env*" -o -name "*.env" \) \
-    ! -path "*/node_modules/*" \
-    ! -path "*/.git/*" \
-    ! -path "*/trees/*" \
-    ! -path "*/venv/*" \
-    ! -path "*/__pycache__/*" \
-    ! -path "*/dist/*" \
-    ! -path "*/build/*" | while read -r env_file; do
-
+while IFS= read -r env_file; do
     rel_path="${env_file#$PROJECT_ROOT/}"
     target_dir="$(dirname "$rel_path")"
 
@@ -93,16 +88,20 @@ find "$PROJECT_ROOT" -type f \( -name ".env*" -o -name "*.env" \) \
     cp "$env_file" "$rel_path"
     echo "  Copied $rel_path"
     env_files_found=$((env_files_found + 1))
-done
+done < <(find "$PROJECT_ROOT" -type f \( -name ".env*" -o -name "*.env" \) \
+    ! -name "*.example" \
+    ! -path "*/node_modules/*" \
+    ! -path "*/.git/*" \
+    ! -path "*/trees/*" \
+    ! -path "*/venv/*" \
+    ! -path "*/__pycache__/*" \
+    ! -path "*/dist/*" \
+    ! -path "*/build/*")
 
-# If no .env files found, look for .env.example files as fallback
+# If no real .env files found, fall back to .env.example templates
 if [ $env_files_found -eq 0 ]; then
     echo "No .env files found, looking for .env.example templates..."
-    find "$PROJECT_ROOT" -type f -name ".env.example" \
-        ! -path "*/node_modules/*" \
-        ! -path "*/.git/*" \
-        ! -path "*/trees/*" | while read -r example_file; do
-
+    while IFS= read -r example_file; do
         rel_path="${example_file#$PROJECT_ROOT/}"
         target_path="${rel_path%.example}"
         target_dir="$(dirname "$target_path")"
@@ -113,7 +112,10 @@ if [ $env_files_found -eq 0 ]; then
 
         cp "$example_file" "$target_path"
         echo "  Copied $rel_path as $target_path - configure as needed"
-    done
+    done < <(find "$PROJECT_ROOT" -type f -name ".env.example" \
+        ! -path "*/node_modules/*" \
+        ! -path "*/.git/*" \
+        ! -path "*/trees/*")
 fi
 
 # Copy other configuration files (credentials, secrets, local configs)
