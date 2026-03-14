@@ -1,5 +1,15 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-tab-set.sh 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "hooks": [
