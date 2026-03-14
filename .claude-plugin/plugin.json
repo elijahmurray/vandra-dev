@@ -1,6 +1,6 @@
 {
   "name": "vandra-dev",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "description": "Opinionated development workflow plugin with worktree management, port isolation, issue tracking, and PR workflows",
   "author": {
     "name": "Vandra"

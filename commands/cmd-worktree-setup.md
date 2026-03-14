@@ -54,6 +54,16 @@ If present, extract:
 - Check docker-compose for postgres/mysql services
 - Set database type and envVar
 
+### Step 5b: Detect Cross-Service Dependencies
+
+Look for env vars in one service that reference another service's port:
+
+- `BACKEND_PORT`, `API_PORT` in frontend env files → references backend service
+- `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_API_URL` → URL templates referencing backend
+- `FRONTEND_URL`, `CORS_ORIGINS` in backend env files → references frontend service
+
+For each found, create a `crossServiceRewrites` entry.
+
 ### Step 6: Generate Config
 
 Build a `.worktree.json` and present it to the user:
@@ -69,6 +79,14 @@ Build a `.worktree.json` and present it to the user:
       "envFile": "<detected_file>"
     }
   ],
+  "crossServiceRewrites": [
+    {
+      "file": "<env_file_path>",
+      "var": "<env_var_name>",
+      "sourceService": "<service_name>",
+      "template": "http://localhost:{<service_name>_port}"
+    }
+  ],
   "database": {
     "type": "<postgres|mysql|sqlite|none>",
     "envVar": "DATABASE_URL"
@@ -76,6 +94,16 @@ Build a `.worktree.json` and present it to the user:
   "tabFormat": "{type}: {name} ({ports})"
 }
 ```
+
+**crossServiceRewrites** entries:
+- `file`: The env file to write to
+- `var`: The env variable name to set
+- `sourceService`: Which service's port to reference (must match a service `name`)
+- `template` (optional): URL template with `{service_port}` placeholder. If omitted, the raw port number is written.
+
+Examples:
+- `{"file": "frontend/.env.local", "var": "BACKEND_PORT", "sourceService": "backend"}` → writes `BACKEND_PORT=8001`
+- `{"file": "frontend/.env.local", "var": "NEXT_PUBLIC_BACKEND_URL", "sourceService": "backend", "template": "http://localhost:{backend_port}"}` → writes `NEXT_PUBLIC_BACKEND_URL=http://localhost:8001`
 
 Show the user what was detected and ask for confirmation. Let them adjust services, ports, or env var names before writing.
 

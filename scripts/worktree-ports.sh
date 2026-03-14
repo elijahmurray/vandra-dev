@@ -18,9 +18,20 @@ MAX_SLOT=99
 # ---------------------------------------------------------------------------
 
 find_project_root() {
+  # Prefer .git directory (main repo) over .git file (worktree) so that
+  # worktrees inside trees/ resolve to the actual project root, not themselves.
   local dir="$PWD"
   while [ "$dir" != "/" ]; do
-    if [ -d "$dir/.git" ] || [ -f "$dir/.git" ]; then
+    if [ -d "$dir/.git" ]; then
+      echo "$dir"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  # Fallback: look for .git file (standalone worktree not under main repo)
+  dir="$PWD"
+  while [ "$dir" != "/" ]; do
+    if [ -f "$dir/.git" ]; then
       echo "$dir"
       return 0
     fi

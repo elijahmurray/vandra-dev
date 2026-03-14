@@ -10,10 +10,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$SCRIPT_DIR")}"
 
 # Function to find project root (directory containing .git)
+# Prefers .git directory (main repo) over .git file (worktree) so that
+# running from inside a worktree still resolves to the actual project root.
 find_project_root() {
     local current_dir="$(pwd)"
     while [[ "$current_dir" != "/" ]]; do
-        if [[ -d "$current_dir/.git" ]] || [[ -f "$current_dir/.git" ]]; then
+        if [[ -d "$current_dir/.git" ]]; then
+            echo "$current_dir"
+            return
+        fi
+        current_dir="$(dirname "$current_dir")"
+    done
+    # Fallback: look for .git file (standalone worktree not under main repo)
+    current_dir="$(pwd)"
+    while [[ "$current_dir" != "/" ]]; do
+        if [[ -f "$current_dir/.git" ]]; then
             echo "$current_dir"
             return
         fi
@@ -189,6 +200,112 @@ for svc in config.get('services', []):
 "
     else
         echo "  Warning: jq or python3 required for port rewriting, skipping"
+    fi
+fi
+
+# ============================================================================
+# CROSS-SERVICE PORT REWRITES
+# ============================================================================
+# Handle crossServiceRewrites in .worktree.json — sets env vars in one service
+# that reference another service's port (e.g. BACKEND_PORT in frontend/.env.local)
+if [ -n "$SLOT" ] && [ "$SLOT" -gt 0 ] 2>/dev/null && [ -f "$WORKTREE_CONFIG" ]; then
+    if command -v jq >/dev/null 2>&1; then
+        rewrite_count=$(jq '.crossServiceRewrites // [] | length' "$WORKTREE_CONFIG" 2>/dev/null || echo "0")
+        if [ "$rewrite_count" -gt 0 ]; then
+            echo "Applying cross-service port rewrites..."
+            for i in $(seq 0 $((rewrite_count - 1))); do
+                rw_file=$(jq -r ".crossServiceRewrites[$i].file // empty" "$WORKTREE_CONFIG")
+                rw_var=$(jq -r ".crossServiceRewrites[$i].var // empty" "$WORKTREE_CONFIG")
+                rw_source=$(jq -r ".crossServiceRewrites[$i].sourceService // empty" "$WORKTREE_CONFIG")
+                rw_template=$(jq -r ".crossServiceRewrites[$i].template // empty" "$WORKTREE_CONFIG")
+
+                if [ -z "$rw_file" ] || [ -z "$rw_var" ]; then
+                    continue
+                fi
+
+                # Resolve source service port
+                source_port=""
+                if [ -n "$rw_source" ]; then
+                    source_base=$(jq -r --arg name "$rw_source" '.services[] | select(.name == $name) | .basePort' "$WORKTREE_CONFIG" 2>/dev/null)
+                    if [ -n "$source_base" ]; then
+                        source_port=$((source_base + SLOT))
+                    fi
+                fi
+
+                if [ -n "$source_port" ]; then
+                    # Ensure target file exists
+                    if [ -f "$rw_file" ]; then
+                        if [ -n "$rw_template" ]; then
+                            # Template mode: replace {service_port} placeholder
+                            new_value="${rw_template//\{${rw_source}_port\}/$source_port}"
+                            # Update or append
+                            if grep -q "^${rw_var}=" "$rw_file"; then
+                                sed -i'' -e "s|^${rw_var}=.*|${rw_var}=${new_value}|" "$rw_file"
+                            else
+                                echo "${rw_var}=${new_value}" >> "$rw_file"
+                            fi
+                            echo "  ${rw_var}=${new_value} ($rw_file)"
+                        else
+                            # Simple port mode
+                            if grep -q "^${rw_var}=" "$rw_file"; then
+                                sed -i'' -e "s|^${rw_var}=.*|${rw_var}=${source_port}|" "$rw_file"
+                            else
+                                echo "${rw_var}=${source_port}" >> "$rw_file"
+                            fi
+                            echo "  ${rw_var}=${source_port} ($rw_file)"
+                        fi
+                    fi
+                fi
+            done
+        fi
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -c "
+import json, os, re, sys
+
+with open('$WORKTREE_CONFIG') as f:
+    config = json.load(f)
+
+slot = $SLOT
+rewrites = config.get('crossServiceRewrites', [])
+services = {s['name']: s for s in config.get('services', [])}
+
+for rw in rewrites:
+    rw_file = rw.get('file', '')
+    rw_var = rw.get('var', '')
+    source = rw.get('sourceService', '')
+    template = rw.get('template', '')
+
+    if not rw_file or not rw_var or not source:
+        continue
+    if source not in services:
+        continue
+
+    source_port = services[source]['basePort'] + slot
+
+    if not os.path.isfile(rw_file):
+        continue
+
+    if template:
+        new_value = template.replace('{' + source + '_port}', str(source_port))
+    else:
+        new_value = str(source_port)
+
+    with open(rw_file) as f:
+        lines = f.readlines()
+
+    found = False
+    for i, line in enumerate(lines):
+        if line.startswith(rw_var + '='):
+            lines[i] = f'{rw_var}={new_value}\n'
+            found = True
+            break
+    if not found:
+        lines.append(f'{rw_var}={new_value}\n')
+
+    with open(rw_file, 'w') as f:
+        f.writelines(lines)
+    print(f'  {rw_var}={new_value} ({rw_file})')
+"
     fi
 fi
 
