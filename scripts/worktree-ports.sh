@@ -254,7 +254,9 @@ cmd_rewrite() {
   elif grep -qE "^${var}=${base_port}" "$file"; then
     sed -i'' -e "s|^\(${var}=\)${base_port}|\1${new_port}|" "$file"
   else
-    echo "Warning: pattern ${var}=${base_port} not found in $file" >&2
+    # Variable not found — append it with the new port value
+    echo "${var}=${new_port}" >> "$file"
+    echo "Note: ${var} not found in $file, appended ${var}=${new_port}" >&2
   fi
 }
 
