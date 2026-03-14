@@ -1,0 +1,20 @@
+{
+  "name": "vandra-dev",
+  "version": "1.0.0",
+  "description": "Opinionated development workflow plugin with worktree management, port isolation, issue tracking, and PR workflows",
+  "author": {
+    "name": "Vandra"
+  },
+  "repository": "https://github.com/elijahmurray/vandra-dev",
+  "license": "MIT",
+  "keywords": [
+    "workflow",
+    "worktree",
+    "git",
+    "pr",
+    "issue",
+    "tdd",
+    "ports",
+    "isolation"
+  ]
+}
