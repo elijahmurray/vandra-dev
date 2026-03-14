@@ -1,0 +1,15 @@
+{
+  "name": "vandra-marketplace",
+  "description": "Vandra development workflow plugins",
+  "version": "1.0.0",
+  "owner": {
+    "name": "elijahmurray"
+  },
+  "plugins": [
+    {
+      "name": "vandra-dev",
+      "description": "Opinionated development workflow plugin with worktree management, port isolation, issue tracking, and PR workflows",
+      "source": "."
+    }
+  ]
+}
