@@ -48,6 +48,31 @@ WORK_SUMMARY="$4"
 
 # No timestamp needed - notifications are immediate
 
+# Function to request terminal tab attention
+request_tab_attention() {
+    local message="$1"
+
+    # iTerm2: Request attention (flashes tab orange and bounces dock icon)
+    if [ "${TERM_PROGRAM:-}" = "iTerm.app" ]; then
+        printf '\033]1337;RequestAttention=yes\007'
+        # Also set an urgent tab title
+        printf '\033]1;%s\007' ">>> $message"
+    fi
+
+    # Warp: Set tab title with attention prefix
+    if [ "${TERM_PROGRAM:-}" = "WarpTerminal" ]; then
+        printf '\033]0;%s\007' ">>> $message"
+    fi
+
+    # General terminals: Set title with attention indicator
+    printf '\033]0;%s\007' ">>> $message"
+
+    # macOS: Bounce dock icon for Terminal.app
+    if [ "${TERM_PROGRAM:-}" = "Apple_Terminal" ]; then
+        osascript -e 'tell application "Terminal" to activate' 2>/dev/null || true
+    fi
+}
+
 # Function to send notification using terminal-notifier (more reliable)
 send_notification() {
     local title="$1"
@@ -85,6 +110,7 @@ case "$NOTIFICATION_TYPE" in
             MESSAGE="Main agent has finished executing"
         fi
         SUBTITLE="$TAB_NAME"
+        request_tab_attention "DONE: ${TASK_DESCRIPTION:-Claude finished}"
         send_notification "$TITLE" "$MESSAGE" "$SUBTITLE" "Glass"
         ;;
 
@@ -109,6 +135,7 @@ case "$NOTIFICATION_TYPE" in
             MESSAGE="Your attention is required"
         fi
         SUBTITLE="$TAB_NAME"
+        request_tab_attention "NEEDS INPUT: ${TASK_DESCRIPTION:-Attention required}"
         send_notification "$TITLE" "$MESSAGE" "$SUBTITLE" "Ping"
         ;;
 
@@ -121,6 +148,7 @@ case "$NOTIFICATION_TYPE" in
             MESSAGE="A Warp tab requires your attention"
         fi
         SUBTITLE="$TAB_NAME"
+        request_tab_attention "ATTENTION: ${TASK_DESCRIPTION:-Check this tab}"
         send_notification "$TITLE" "$MESSAGE" "$SUBTITLE" "Ping"
         ;;
 
