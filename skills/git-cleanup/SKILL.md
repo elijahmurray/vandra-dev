@@ -1,5 +1,5 @@
 ---
-description: Clean up merged branches, worktrees, port slots, and databases
+description: "Clean up merged branches, worktrees, port slots, and databases. Use worktree-cleanup instead."
 ---
 
-When the user wants to clean up merged branches, stale worktrees, or do git maintenance, run the `/vandra-dev:cmd-git-cleanup` command.
+This skill has been merged into `worktree-cleanup`. Run the `/vandra-dev:worktree-cleanup` skill instead.
