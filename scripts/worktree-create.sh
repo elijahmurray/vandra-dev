@@ -9,6 +9,24 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$SCRIPT_DIR")}"
 
+# ============================================================================
+# TERMINAL SETUP CHECK (first-run only)
+# ============================================================================
+TERMINAL_SETUP_FLAG="${HOME}/.claude/.terminal-setup-complete"
+TERMINAL_SETUP_SCRIPT="$SCRIPT_DIR/terminal-setup.sh"
+
+if [ ! -f "$TERMINAL_SETUP_FLAG" ] && [ -f "$TERMINAL_SETUP_SCRIPT" ]; then
+    echo ""
+    echo "Tab renaming requires one-time terminal setup."
+    echo "This configures your shell so worktree tabs keep their names."
+    echo ""
+    # Run the check to show current status
+    "$TERMINAL_SETUP_SCRIPT" check 2>/dev/null || true
+    echo ""
+    echo "Run 'terminal-setup.sh apply' to configure, or create ~/.claude/.terminal-setup-complete to skip."
+    echo ""
+fi
+
 # Function to find project root (directory containing .git)
 # Prefers .git directory (main repo) over .git file (worktree) so that
 # running from inside a worktree still resolves to the actual project root.
@@ -637,7 +655,8 @@ fi
 echo -e "${RED}+------------------------------------------------------------------------------+${RESET}"
 echo ""
 # Build the one-liner for the new tab
-LAUNCH_CMD="cd ${WORKTREE_PATH} && claude"
+# Use tt function (if available) for persistent tab title, and disable Claude's title override
+LAUNCH_CMD="cd ${WORKTREE_PATH} && tt '${TAB_TITLE}' 2>/dev/null; export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 && claude"
 
 # Copy to clipboard
 echo -n "$LAUNCH_CMD" | pbcopy 2>/dev/null
@@ -654,12 +673,13 @@ if [ "$TERM_PROGRAM" = "WarpTerminal" ]; then
 
 elif [ "$TERM_PROGRAM" = "iTerm.app" ]; then
     # iTerm2: open new tab and run the command directly
+    # Uses tt for persistent title + CLAUDE_CODE_DISABLE_TERMINAL_TITLE to prevent override
     osascript -e "
         tell application \"iTerm2\"
             tell current window
                 create tab with default profile
                 tell current session of current tab
-                    write text \"${LAUNCH_CMD} && printf '\\\\033]0;${TAB_TITLE}\\\\007'\"
+                    write text \"cd ${WORKTREE_PATH} && tt '${TAB_TITLE}' 2>/dev/null; export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 && claude\"
                 end tell
             end tell
         end tell
