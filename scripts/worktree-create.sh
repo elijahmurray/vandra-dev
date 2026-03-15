@@ -648,6 +648,15 @@ TAB_TITLE="${TAB_TITLE//\{type\}/$DISPLAY_TYPE}"
 TAB_TITLE="${TAB_TITLE//\{name\}/$DISPLAY_NAME}"
 TAB_TITLE="${TAB_TITLE//\{ports\}/$PORT_DISPLAY}"
 
+# Read Claude launch flags from .worktree.json (default: --dangerously-skip-permissions)
+CLAUDE_FLAGS="--dangerously-skip-permissions"
+if [ -f "$WORKTREE_CONFIG" ] && command -v jq >/dev/null 2>&1; then
+    custom_flags=$(jq -r '.claudeFlags // empty' "$WORKTREE_CONFIG" 2>/dev/null)
+    if [ -n "$custom_flags" ]; then
+        CLAUDE_FLAGS="$custom_flags"
+    fi
+fi
+
 # ============================================================================
 # SESSION TRANSITION INSTRUCTIONS
 # ============================================================================
@@ -680,7 +689,7 @@ echo -e "${RED}+----------------------------------------------------------------
 echo ""
 # Build the one-liner for the new tab
 # Use tt function (if available) for persistent tab title, and disable Claude's title override
-LAUNCH_CMD="cd ${WORKTREE_PATH} && tt '${TAB_TITLE}' 2>/dev/null; export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 && claude"
+LAUNCH_CMD="cd ${WORKTREE_PATH} && tt '${TAB_TITLE}' 2>/dev/null; export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 && claude ${CLAUDE_FLAGS}"
 
 # Copy to clipboard
 echo -n "$LAUNCH_CMD" | pbcopy 2>/dev/null
@@ -703,7 +712,7 @@ elif [ "$TERM_PROGRAM" = "iTerm.app" ]; then
             tell current window
                 create tab with default profile
                 tell current session of current tab
-                    write text \"cd ${WORKTREE_PATH} && tt '${TAB_TITLE}' 2>/dev/null; export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 && claude\"
+                    write text \"cd ${WORKTREE_PATH} && tt '${TAB_TITLE}' 2>/dev/null; export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 && claude ${CLAUDE_FLAGS}\"
                 end tell
             end tell
         end tell
