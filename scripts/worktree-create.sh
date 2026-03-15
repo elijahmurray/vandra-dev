@@ -595,13 +595,37 @@ echo ""
 # ============================================================================
 TAB_SCRIPT="$SCRIPT_DIR/worktree-tab-rename.sh"
 
-# Determine display name
-DISPLAY_TYPE=$(echo "$BRANCH_TYPE" | sed 's/^./\U&/')  # Capitalize first letter
-DISPLAY_NAME=$(echo "$BRANCH_NAME" | sed 's/-/ /g' | sed 's/\b./\U&/g')  # Title case
+# Determine display name — short and readable
+# Strip ticket prefix (e.g. RAI-552-) and take first 2-3 words as a short label
+# Short type labels for tab titles
+case "$BRANCH_TYPE" in
+    feature) DISPLAY_TYPE="feat" ;;
+    bugfix|bug|fix) DISPLAY_TYPE="fix" ;;
+    hotfix) DISPLAY_TYPE="hotfix" ;;
+    chore) DISPLAY_TYPE="chore" ;;
+    *) DISPLAY_TYPE=$(echo "$BRANCH_TYPE" | tr '[:upper:]' '[:lower:]') ;;
+esac
+SHORT_DESC=$(echo "$BRANCH_NAME" | sed -E 's/^[A-Z]+-[0-9]+-//' | sed 's/-/ /g' | awk '{for(i=1;i<=NF&&i<=3;i++) printf "%s ", $i; print ""}' | sed 's/ *$//')
+# Extract ticket ID if present (e.g. RAI-552)
+TICKET_ID=$(echo "$BRANCH_NAME" | grep -oE '^[A-Z]+-[0-9]+' || echo "")
+if [ -n "$TICKET_ID" ] && [ -n "$SHORT_DESC" ]; then
+    DISPLAY_NAME="${TICKET_ID} ${SHORT_DESC}"
+elif [ -n "$SHORT_DESC" ]; then
+    DISPLAY_NAME="$SHORT_DESC"
+else
+    DISPLAY_NAME="$BRANCH_NAME"
+fi
 
-# Determine port display
+# Determine port display — frontend port only for cleaner tab titles
 PORT_DISPLAY="N/A"
-if [ -n "$SLOT" ] && [ -f "$PORTS_SCRIPT" ]; then
+if [ -n "$SLOT" ] && [ -f "$WORKTREE_CONFIG" ] && command -v jq >/dev/null 2>&1; then
+    frontend_port=$(jq -r --argjson s "$SLOT" '.services[] | select(.name == "frontend") | .basePort + $s' "$WORKTREE_CONFIG" 2>/dev/null || echo "")
+    if [ -n "$frontend_port" ]; then
+        PORT_DISPLAY="$frontend_port"
+    elif [ -f "$PORTS_SCRIPT" ]; then
+        PORT_DISPLAY=$("$PORTS_SCRIPT" summary "$SLOT" 2>/dev/null || echo "N/A")
+    fi
+elif [ -n "$SLOT" ] && [ -f "$PORTS_SCRIPT" ]; then
     PORT_DISPLAY=$("$PORTS_SCRIPT" summary "$SLOT" 2>/dev/null || echo "N/A")
 fi
 
