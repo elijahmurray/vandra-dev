@@ -505,7 +505,11 @@ if command -v psql &> /dev/null; then
             if [ "$DB_EXISTS" = true ]; then
                 echo "  Cloning database $MAIN_DB_NAME to $BRANCH_DB_NAME..."
 
-                if createdb -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -T "$MAIN_DB_NAME" "$BRANCH_DB_NAME" 2>/dev/null; then
+                # Use pg_dump|psql instead of createdb -T, which fails when
+                # the source database has active connections (it always does).
+                if createdb -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" "$BRANCH_DB_NAME" 2>/dev/null && \
+                   pg_dump -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" "$MAIN_DB_NAME" 2>/dev/null | \
+                   psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" "$BRANCH_DB_NAME" >/dev/null 2>&1; then
                     echo "  Database cloned successfully"
 
                     echo "  Updating environment files..."
@@ -533,7 +537,7 @@ if command -v psql &> /dev/null; then
                     fi
                 else
                     echo "  Failed to clone database"
-                    echo "  Manual: createdb -h $PG_HOST -p $PG_PORT -U $PG_USER -T $MAIN_DB_NAME $BRANCH_DB_NAME"
+                    echo "  Manual: createdb -h $PG_HOST -p $PG_PORT -U $PG_USER $BRANCH_DB_NAME && pg_dump -h $PG_HOST -p $PG_PORT -U $PG_USER $MAIN_DB_NAME | psql -h $PG_HOST -p $PG_PORT -U $PG_USER $BRANCH_DB_NAME"
                 fi
             else
                 echo "  Main database '$MAIN_DB_NAME' not found"
