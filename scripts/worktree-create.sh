@@ -715,6 +715,7 @@ elif [ "$TERM_PROGRAM" = "iTerm.app" ]; then
         tell application \"iTerm2\"
             tell current window
                 create tab with default profile
+                delay 1
                 tell current session of current tab
                     write text \"cd ${WORKTREE_PATH} && tt '${TAB_TITLE}' 2>/dev/null; export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 && claude ${CLAUDE_FLAGS}\"
                 end tell
